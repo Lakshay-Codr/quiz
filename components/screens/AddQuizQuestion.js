@@ -67,6 +67,7 @@ export default function AddQuizQstn({route,navigation}) {
     //function to handle when cancel btn is pressed
     function hanldeCancelBtnClick() {
         console.log("cancel btn clicked");
+        navigation.goBack()
     }
 
     //component rendering

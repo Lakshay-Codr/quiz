@@ -23,15 +23,30 @@ export default function GiveQuiz({ route: {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-       fetchquestion(quizId)
+       fetchquestions(quizId)
     }, []);
-    function fetchquestion(){
-        console.log(quizId)
+    function fetchquestions(quizId){
         if(quizId){
-            const dbref=firebase.app().database().ref("quizes/"+quizId)
-            dbref.on("value",(snap)=>{
-                var question=snap.val()
-                console.log(question)
+            const quizDbref = firebase.app().database().ref("quizes/"+quizId);       
+            quizDbref                  
+            .on('value', (snap)=>{
+                var questions= snap.val();
+                var qstns=[]
+                if(questions){
+                    for(var key in questions){
+                        if(key == "questions"){
+                            var data = questions[key];                          
+                            for(let c in data){
+                                var qstn = data[c]
+                                qstn["options"] = data[c].options;
+                                qstn["questionId"] = data[c].question;
+                                qstns.push(qstn)
+                            }                            
+                            setQuizQsnts(qstns)   
+                            setIsLoading(false);
+                        }
+                    }                   
+                }               
             })
         }
     }
@@ -42,7 +57,58 @@ export default function GiveQuiz({ route: {
 
     //function to render question
     function renderQuestion() {
-       
+        const selectedQuestion = quizQsnts[activeQstnIdx] || {};
+        const options = selectedQuestion.options || [];
+
+        //rendering
+        return (
+            <ScrollView style={styles.scroll}>
+                <View style={styles.qstnContainer}>
+                    <Text style={styles.qstnCount}>{activeQstnIdx + 1 + " of " + totalQstnsCount}</Text>
+                    <Text style={styles.qstnText}>{selectedQuestion.question}</Text>
+                </View>
+
+                {
+                    options.map((item, idx) => {
+                        const questionId = selectedQuestion["questionId"];
+                        var selectedOptionId = null;
+                        if (qstnResponses[questionId]) {
+                            const qstnResponse = qstnResponses[questionId];
+                            selectedOptionId = qstnResponse["answeredOptionId"];
+                        }
+
+                        //checking os selected ans is right/wrong
+                       var optionImgSrc = require("../../assets/option.png");
+                        var optionBorder = null;
+
+                        const isAns = item.isAns;
+                        const optionId = item.optionId;
+                        if ((selectedOptionId == optionId || selectedQstnResponseOptionIdx == optionId) && isAns) {
+                            optionImgSrc = require("../../assets/rightOption.png");
+                            optionBorder = styles.rightAnsBorder;
+                        } else if ((selectedOptionId == optionId || selectedQstnResponseOptionIdx == optionId) && !isAns) {
+                            optionImgSrc = require("../../assets/wrongOption.png");
+                            optionBorder = styles.wrongAnsBorder;
+                        }
+
+                        return (
+                            <TouchableOpacity
+                                key={idx}
+                                style={[styles.option, optionBorder]}
+                                onPress={() => handleOptionPressed(idx, item, selectedQuestion)}
+                            >
+                                <Text style={styles.optionText}>{item.option}</Text>
+                                <Image style={styles.optionImg} source={optionImgSrc} />
+                            </TouchableOpacity>
+                        )
+                    })
+                }
+
+                <View style={[styles.container, styles.btnsContainer]}>
+                    {renderDirectionButtons(activeQstnIdx,totalQstnsCount)}
+                </View>
+            </ScrollView>
+        )
                    
     }
 
@@ -114,9 +180,12 @@ export default function GiveQuiz({ route: {
                             </View>
                             <View style={styles.divider}></View>
                         </View>
-
+                        <View style={styles.divider}></View>
                         <Image source={quizImgUri || require("../../assets/quiz.jpg")} style={styles.image} />
-
+                        <View style={styles.divider}></View>
+                        {
+                            renderQuestion()
+                        }
                     </>
             }
         </View >
