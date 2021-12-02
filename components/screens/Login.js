@@ -24,7 +24,7 @@ export default function Login({navigation}) {
         firebase.auth().signInWithEmailAndPassword(email, password)
                     .then(async(userCredential) => {
                         await AsyncStorage.setItem("UserId",userCredential.user.uid)
-
+                        await AsyncStorage.setItem("email",email)
                         setSnackBarText('Login siuccess')
                      setSnackBarType("success");
                      setSnackBarVisible(true);

@@ -1,22 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image, ScrollView, Dimensions ,Platform } from 'react-native';
 import BasicButton from "../BasicComponent/BasicButton";
 import * as ImagePicker from 'expo-image-picker';
 import { PieChart } from 'react-native-chart-kit'
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import firebase from '../Firebase/firebaseconfig';
+import SnackBar from '../BasicComponent/SnackBar';
 
 export default function Profile() {
     const [image, setImage] = useState("http://2.bp.blogspot.com/-QWj2Wq45014/TzNOfQezNqI/AAAAAAAAAIY/Lvy0m7ZtWRM/s1600/12.jpg");
     const [hasImageChanged, setHasImageChanged] = useState(false);
 
-    const [name, setName] = useState("Iron Man");
-    const [email, setEmail] = useState("tony.stark@iron.man");
-    const [phoneNo, setPhoneNo] = useState("9000000000");
-    const [aboutYou, setAboutYou] = useState("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy ");
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [phoneNo, setPhoneNo] = useState("");
+    const [aboutYou, setAboutYou] = useState("");   
 
-   
+    useEffect(() => {
+        //asking for permission to access phone's gallery
+        (async () => {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestCameraRollPermissionsAsync();
+                if (status !== 'granted') {
+                    alert('Sorry, we need camera roll permissions to make this work!');
+                }
+            }
+        })();
+
+        //getting users data from firebase
+        fetchUsersData();
+    }, []);
+    //function to fetch users data from firebase
+    async function fetchUsersData() {
+        const loggedUserId = await AsyncStorage.getItem('UserId');
+        const email_data =      await AsyncStorage.getItem("email" )
+      
+        if (loggedUserId) {
+            const usersDbRef = firebase.app().database().ref('users/');
+            usersDbRef
+                .child(loggedUserId)
+                .once('value')
+                .then(resp => {
+                    const response = resp.val();
+                    if (response) {
+                        //for getting performance pie chart
+                        //Write code
+                            console.log(response)
+                              //for getting performance pie chart
+                        var total = 0;
+                        var correct = 0;
+                        var incorrect = 0;
+                        const quizResponses = response.quizResponses || {};
+                        const tempGivenQuiz = Object.keys(quizResponses).length || null;
+                        for (const quizId in quizResponses) {
+                            const quizResponse = quizResponses[quizId];
+                            const responses = quizResponse.responses || {};
+                            console.log("responses", responses);
+                            const tempTotal = Object.keys(responses).length || 0;
+                            total += tempTotal;
+                            for (const questionId in responses) {
+                                const ansResponse = responses[questionId];
+                                const isCorrect = ansResponse["isCorrect"];
+                                if (isCorrect) {
+                                    correct++;
+                                }
+                            }
+                        }
+                        incorrect = total - correct;
+
+                        //updating state
+                        setName(response.name);
+                        setEmail(email_data);
+                        setDesc(response.desc);
+                        setAgeGroup(response.ageGroup);
+                        setGivenQuizCount(tempGivenQuiz);
+                        setPerformanceData({
+                            total,
+                            correct,
+                            incorrect,
+                        });
+
+                        if (response.profilePicUri) {
+                            setProfilePicUri(response.profilePicUri)
+                        }
+
+                    
+                    }
+                    setIsLoading(false);
+                })
+                .catch(error => {
+                    displaySnackBar("error", "Failed to fetch profile");
+                });
+        } else {
+            displaySnackBar("error", "User is not logged in");
+        }
+    }
+    //function to update user profile data in firebase db
+    function updateProfileInFirebase(loggedUserId, imageUploadUrl) {
+        const usersDbRef = firebase.app().database().ref('users/');
+       //write code
+       usersDbRef
+            .child(loggedUserId)
+            .update({
+                name,
+                ageGroup,
+                profilePicUri: imageUploadUrl,
+                desc,
+            },
+                (error) => {
+                    if (error) {
+                        setIsLoading(false);
+                        displaySnackBar("error", "Failed to update profile");
+                    } else {
+                        setIsLoading(false);
+                        displaySnackBar("success", "Profile updated");
+                    }
+                });
+    }
+
     //function to handle when login btn is clicked on
-    function handleSaveBtnClick() {
+    async function handleSaveBtnClick() {
         console.log("save btn clicked");
+        try {
+            const loggedUserId = await AsyncStorage.getItem('UserId');
+            if (loggedUserId) {
+                //if new profile pic has been choosen
+                //then uploading it to firebase storage
+                if (hasImageUploaded) {
+                    await uploadImageInFirebase(loggedUserId)
+                        .then(() => {
+                            displaySnackBar("success", "Image Successfully Uploaded");
+                        })
+                        .catch((error) => {
+                            setIsLoading(false);
+                            displaySnackBar("error", "Failed to upload Image");
+                        });
+
+                    setHasImageUploaded(false);
+                } else {
+                    updateProfileInFirebase(loggedUserId, profilePicUri);
+                }
+            }
+        } catch {
+            setIsLoading(false);
+            displaySnackBar("error", "Something went wrong");
+        }
     }
 
     //function to handle when profile pic edit btn is clicked on

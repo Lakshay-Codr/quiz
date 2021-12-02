@@ -24,7 +24,9 @@ export default function MyQuizes({navigation}) {
                 for(const key in data ){
                     console.log(data [key].createdByUser)
                     const id=data [key].createdByUser
+                    const d=data[key]
                     if(id==createdByUser){
+                       d["quizId"]=key     
                         myQuize.push(data [key])
                     }
                 }
@@ -36,8 +38,8 @@ export default function MyQuizes({navigation}) {
     //function to handle when any quiz item is clicked on
     function handleQuizItemClick(index) {
         console.log(index);
-        const quizId=quiz;
-        navigation.navigate("GiveQuiz",quizId[index])
+        const quizId=quiz[index];
+        navigation.navigate("GiveQuiz",quizId)
     }
 
     //fuction to hanlde when add new quiz btn is pressed on

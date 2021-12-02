@@ -52,7 +52,26 @@ export default function GiveQuiz({ route: {
     }
     //function to handle when any option is clicked clicked on
     function handleOptionPressed(idx, option, question) {
-       
+        if (idx != null) {
+            //checking if that qstn is already answered
+            //if already answered then not selecteding the option
+            const questionId = question["questionId"];
+            if (!qstnResponses[questionId]) {
+                setSelectedQstnResponseOptionIdx(idx);
+    
+                //storing response in state
+                //  option.optionID = >  option.optionId
+                var tempQstnResponses = qstnResponses;
+                tempQstnResponses[questionId] = {
+                    "questionId": questionId,
+                    "question": question.question,
+                    "answeredOptionId": option.optionId,
+                    "answeredOption": option.option,
+                    "isCorrect": option.isAns,
+                };
+                setQstnResponses(tempQstnResponses);
+            }
+        }
     }
 
     //function to render question
@@ -114,29 +133,72 @@ export default function GiveQuiz({ route: {
 
     //function to render direction buttons
     function renderDirectionButtons() {
-       
+        var isPrevBtnActive = activeQstnIdx >= 0;
+        var isNextBtnActive = activeQstnIdx <= totalQstnsCount - 1;
+        return (
+            <>
+                <BasicButton
+                    key={0}
+                    text="Prev"
+                    customStyle={isPrevBtnActive ? styles.button : styles.disabledButton}
+                    onPress={isPrevBtnActive ? hanldePrevBtnClick : null}
+                />
+                <BasicButton
+                    key={1}
+                    text="Next"
+                    customStyle={isNextBtnActive ? styles.button : styles.disabledButton}
+                    onPress={isNextBtnActive ?  handleNextBtnClick : null}
+                />
+            </>
+        )
     }
 
     //function to handle when submit btn is pressed on
     async function handleSubmitBtnClick() {
-        const loggedUserId = await AsyncStorage.getItem('loggedUserId');
+        const loggedUserId = await AsyncStorage.getItem('UserId');
         if (loggedUserId && quizId) {
             setIsLoading(true);
 
             // adding responses for that quiz in firebase db
-         
+          // adding responses for that quiz in firebase db
+          const usersDbRef = firebase.app().database().ref('users/');
+          usersDbRef
+              .child(loggedUserId + "/quizResponses/" + quizId)
+              .set({
+                  "quizId": quizId,
+                  "responses": qstnResponses
+              },
+                  (error) => {
+                      if (error) {
+                          setIsLoading(false);
+
+                          navigation.goBack();
+                      } else {
+                          setIsLoading(false);
+
+                          navigation.goBack();
+                      }
+                  });
+          // adding responses for that quiz in firebase db 
+
 
         }
     }
 
-    //function to handle next/prev btn click
-    function handlePrevBtnClick() {
-        
+   //function to handle next/prev btn click
+   function hanldePrevBtnClick() {
+    if (activeQstnIdx > 0) {
+        setSelectedQstnResponseOptionIdx(null);
+        setActiveQstnIdx(activeQstnIdx - 1);
     }
+}
 
-    function handleNextBtnClick() {
-        
+function handleNextBtnClick() {
+    if (activeQstnIdx < totalQstnsCount - 1) {
+        setSelectedQstnResponseOptionIdx(null);
+        setActiveQstnIdx(activeQstnIdx + 1);
     }
+}
 
     //function to shuffle options
     function shuffle(array) {
@@ -180,8 +242,10 @@ export default function GiveQuiz({ route: {
                             </View>
                             <View style={styles.divider}></View>
                         </View>
-                        <View style={styles.divider}></View>
+                        <View style={styles.divider}>
                         <Image source={quizImgUri || require("../../assets/quiz.jpg")} style={styles.image} />
+                        </View>
+                        
                         <View style={styles.divider}></View>
                         {
                             renderQuestion()
